@@ -426,6 +426,12 @@ input[type=range]::-webkit-slider-thumb:active{transform:scale(1.2);}
     <div class="scr-ttl">DASHBOARD</div>
     <div class="scr-sub" id="dashGreet">Welcome!</div>
 
+    <!-- Coach "viewing as" banner -->
+    <div id="viewAsBanner" style="display:none;background:var(--grn-dim);border:1px solid rgba(126,224,0,.25);border-radius:10px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px;font-weight:700;color:var(--grn)">
+      <span id="viewAsTxt">👁️ Coach view</span>
+      <button class="b-secondary" style="width:auto;padding:6px 12px;font-size:12px" onclick="exitViewAs()">← Back to Admin</button>
+    </div>
+
     <!-- Pending approval notice -->
     <div class="pending-notice" id="pendingNotice" style="display:none">
       ⏳ Your account is awaiting coach approval.<br>
@@ -779,6 +785,7 @@ function goTab(name,btn){
     toast('⏳ Check-ins unlock once the coach approves your account.','a');
     return;
   }
+  if(btn)VIEWUSER=null; // clear coach "view as" when navigating via the bottom nav
   document.querySelectorAll('.scr').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.tb').forEach(t=>t.classList.remove('active'));
   document.getElementById('scr-'+name).classList.add('active');
@@ -790,10 +797,26 @@ function goTab(name,btn){
   if(name==='admin')renderAdmin();
 }
 
+function viewMember(email){
+  if(!CU||CU.role!=='admin')return;
+  const u=gDB().users[email];
+  if(!u)return;
+  VIEWUSER=u;
+  goTab('dashboard',null);
+}
+
+function exitViewAs(){
+  VIEWUSER=null;
+  document.querySelectorAll('.tb').forEach(t=>t.classList.remove('active'));
+  document.getElementById('adminTab').classList.add('active');
+  goTab('admin',null);
+}
+
 // ═══════════════════════════════════════
 // CHECK-IN
 // ═══════════════════════════════════════
-function myCI(){return CU?(gDB().checkins[CU.email]||[]):[]}
+let VIEWUSER=null; // coach "view as" target user object
+function myCI(){const u=VIEWUSER||CU;return u?(gDB().checkins[u.email]||[]):[]}
 
 // ── DATE PICKER STATE ──
 let selectedDate = today(); // YYYY-MM-DD
@@ -1017,7 +1040,8 @@ function renderTrend(){
   });
   // Baseline ref line
   if(CU&&(trendMetric==='weight'||trendMetric==='waist')){
-    const baseVal=trendMetric==='weight'?CU.baseWeight:CU.baseWaist;
+    const ub=VIEWUSER||CU;
+    const baseVal=trendMetric==='weight'?ub.baseWeight:ub.baseWaist;
     if(baseVal){
       const by=H-pad-(((baseVal-minV)/range)*(H-pad*2));
       svgHTML+=`<line x1="${pad}" y1="${by}" x2="${W-pad}" y2="${by}" stroke="#7EE000" stroke-width="1" stroke-dasharray="4,3" opacity=".4"/>`;
@@ -1058,14 +1082,22 @@ function renderTrend(){
 // ═══════════════════════════════════════
 function renderDash(){
   if(!CU)return;
+  const u=VIEWUSER||CU;
+  const vb=document.getElementById('viewAsBanner');
+  if(VIEWUSER){
+    vb.style.display='flex';
+    document.getElementById('viewAsTxt').textContent='👁️ Coach view — '+u.name+"'s dashboard ("+u.email+')';
+  } else {
+    vb.style.display='none';
+  }
   const h=new Date().getHours();
   const gr=h<12?'Good morning':h<17?'Good afternoon':'Good evening';
-  document.getElementById('dashGreet').textContent=gr+', '+CU.name.split(' ')[0]+' 💪';
+  document.getElementById('dashGreet').textContent=VIEWUSER?('Viewing '+u.name.split(' ')[0]+"'s progress"):(gr+', '+u.name.split(' ')[0]+' 💪');
 
   // Pending notice
   const pend=document.getElementById('pendingNotice');
   const cont=document.getElementById('dashContent');
-  if(CU.status==='pending'){
+  if(u.status==='pending'&&!VIEWUSER){
     pend.style.display='block';
     // Still show basic structure but gray out
     cont.style.opacity='0.4';cont.style.pointerEvents='none';
@@ -1075,15 +1107,15 @@ function renderDash(){
   }
 
   // Baseline banner
-  if(CU.baseWeight&&CU.baseWaist){
+  if(u.baseWeight&&u.baseWaist){
     const bb=document.getElementById('baselineBanner');
     bb.style.display='block';
     const ci=myCI();
     const last=ci[ci.length-1];
-    const wDiff=last?(last.weight-CU.baseWeight).toFixed(1):null;
-    const waDiff=last?(last.waist-CU.baseWaist).toFixed(1):null;
+    const wDiff=last?(last.weight-u.baseWeight).toFixed(1):null;
+    const waDiff=last?(last.waist-u.baseWaist).toFixed(1):null;
     document.getElementById('baselineTxt').innerHTML=
-      `Starting weight: <strong style="color:var(--wht)">${CU.baseWeight} kg</strong> · Starting waist: <strong style="color:var(--wht)">${CU.baseWaist} in</strong>`+
+      `Starting weight: <strong style="color:var(--wht)">${u.baseWeight} kg</strong> · Starting waist: <strong style="color:var(--wht)">${u.baseWaist} in</strong>`+
       (wDiff!==null?`<br>Change: <strong style="color:${parseFloat(wDiff)<0?'var(--grn)':'var(--red)'}">${wDiff>0?'+':''}${wDiff} kg</strong> · <strong style="color:${parseFloat(waDiff)<0?'var(--grn)':'var(--red)'}">${waDiff>0?'+':''}${waDiff} in</strong>`:'');
   }
 
@@ -1189,6 +1221,7 @@ function renderAdmin(){
         <span style="font-size:11px;color:var(--gry);margin-left:auto;align-self:center">Joined ${u.joined}</span>
       </div>`:''}
       ${!isPend?`<div style="display:flex;gap:8px;margin-top:6px">
+        <button class="approve-btn" onclick="viewMember('${u.email}')">📊 View Dashboard</button>
         <button class="approve-btn" style="background:var(--dark2);color:var(--txt);border:1px solid var(--bdr2)" onclick="resetPassword('${u.email}')">🔑 Reset Password</button>
         <button class="reject-btn" onclick="rejectUser('${u.email}')">❌ Remove</button>
       </div>` : ''}
