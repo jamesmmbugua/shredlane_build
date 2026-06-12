@@ -14,6 +14,7 @@
 <!-- Firebase (shared cloud database so admin & members see the same data on any device) -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 :root{
@@ -543,6 +544,7 @@ input[type=range]::-webkit-slider-thumb:active{transform:scale(1.2);}
   <div class="scr" id="scr-history">
     <div class="scr-ttl">HISTORY</div>
     <div class="scr-sub">Your last 30 check-ins</div>
+    <button class="b-secondary" style="width:auto;padding:10px 16px;margin-bottom:12px" onclick="exportMyPDF()">📄 Download my records (PDF)</button>
     <div class="card" style="padding:0;overflow:hidden">
       <div style="overflow-x:auto">
         <table class="htbl"><thead><tr><th>Date</th><th>Wt</th><th>Wst</th><th>Steps</th><th>Sleep</th><th>Hung</th></tr></thead>
@@ -581,6 +583,7 @@ input[type=range]::-webkit-slider-thumb:active{transform:scale(1.2);}
     <div class="scr-ttl">ADMIN</div>
     <div class="scr-sub">Coach dashboard</div>
     <div class="adm-banner">🔒 Private — coach view only</div>
+    <button class="b-secondary" style="width:auto;padding:10px 16px;margin-bottom:12px" onclick="exportAllCSV()">⬇️ Download all data (CSV)</button>
     <div class="card"><div class="card-lbl">Community Stats</div><div class="comm-grid" id="commGrid"></div></div>
     <div style="font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--gry);margin-bottom:10px">Member Approvals & Data</div>
     <div id="membersList"></div>
@@ -1232,6 +1235,92 @@ async function resetPassword(email){
     if(CACHE.users[email])CACHE.users[email].password=np;
     toast('🔑 Password reset for '+email,'g');
   }catch(e){console.error(e);toast('⚠️ Could not reset password — check connection','r');}
+}
+
+// ═══════════════════════════════════════
+// EXPORTS — CSV (admin) & PDF (member)
+// ═══════════════════════════════════════
+function downloadBlob(content,filename,type){
+  const blob=new Blob([content],{type});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=filename;
+  document.body.appendChild(a);a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function csvEscape(v){
+  v=(v===undefined||v===null)?'':String(v);
+  if(/[",\n]/.test(v))return '"'+v.replace(/"/g,'""')+'"';
+  return v;
+}
+
+function exportAllCSV(){
+  if(!CU||CU.role!=='admin')return;
+  const d=gDB();
+  const rows=[['Name','Email','Goal','Status','Joined','Date','Weight (kg)','Waist (in)','Steps','Sleep (hrs)','Hunger (1-10)','Notes']];
+  const members=Object.values(d.users).filter(u=>u.role!=='admin');
+  members.forEach(u=>{
+    const ci=d.checkins[u.email]||[];
+    if(!ci.length){
+      rows.push([u.name,u.email,u.goal,u.status,u.joined,'','','','','','','']);
+    }else{
+      ci.forEach(c=>{
+        rows.push([u.name,u.email,u.goal,u.status,u.joined,c.date,c.weight,c.waist,c.steps,c.sleep,c.hunger,c.notes||'']);
+      });
+    }
+  });
+  const csv=rows.map(r=>r.map(csvEscape).join(',')).join('\n');
+  downloadBlob(csv,'shredlane-data-'+today()+'.csv','text/csv');
+  toast('⬇️ CSV downloaded','g');
+}
+
+function exportMyPDF(){
+  if(!CU)return;
+  const ci=myCI();
+  const { jsPDF } = window.jspdf;
+  const doc=new jsPDF();
+  doc.setFontSize(16);
+  doc.text('Shredlane — Progress Report',14,16);
+  doc.setFontSize(11);
+  doc.text('Name: '+CU.name,14,26);
+  doc.text('Email: '+CU.email,14,32);
+  doc.text('Goal: '+CU.goal,14,38);
+  if(CU.baseWeight)doc.text('Starting weight: '+CU.baseWeight+' kg   Starting waist: '+CU.baseWaist+' in',14,44);
+  doc.text('Generated: '+today(),14,50);
+
+  let y=62;
+  doc.setFontSize(10);
+  doc.text('Date',14,y);
+  doc.text('Wt(kg)',54,y);
+  doc.text('Waist(in)',78,y);
+  doc.text('Steps',106,y);
+  doc.text('Sleep',130,y);
+  doc.text('Hunger',152,y);
+  doc.text('Notes',176,y);
+  y+=4;
+  doc.line(14,y,196,y);
+  y+=6;
+
+  if(!ci.length){
+    doc.text('No check-ins recorded yet.',14,y);
+  }else{
+    [...ci].sort((a,b)=>a.date.localeCompare(b.date)).forEach(c=>{
+      if(y>280){doc.addPage();y=20;}
+      doc.text(String(c.date),14,y);
+      doc.text(String(c.weight??''),54,y);
+      doc.text(String(c.waist??''),78,y);
+      doc.text(String((c.steps||0).toLocaleString()),106,y);
+      doc.text(String(c.sleep??''),130,y);
+      doc.text(String(c.hunger??''),152,y);
+      const notes=(c.notes||'').slice(0,28);
+      doc.text(notes,176,y);
+      y+=7;
+    });
+  }
+  doc.save('shredlane-'+CU.name.replace(/\s+/g,'_')+'-'+today()+'.pdf');
+  toast('📄 PDF downloaded','g');
 }
 
 // ═══════════════════════════════════════
