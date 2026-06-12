@@ -1309,22 +1309,164 @@ function exportAllCSV(){
   toast('⬇️ CSV downloaded','g');
 }
 
+function weeklyAverages(ci,metric){
+  if(!ci.length)return [];
+  const sorted=[...ci].sort((a,b)=>a.date.localeCompare(b.date));
+  const startDate=new Date(sorted[0].date+'T00:00:00');
+  const weeks={};
+  sorted.forEach(c=>{
+    const dayN=Math.floor((new Date(c.date+'T00:00:00')-startDate)/(7*86400000));
+    const wk='Week '+(dayN+1);
+    if(!weeks[wk])weeks[wk]=[];
+    const v=c[metric];
+    if(v)weeks[wk].push(v);
+  });
+  return Object.entries(weeks).filter(([,arr])=>arr.length).map(([wk,arr])=>({
+    week:wk, avg: arr.reduce((s,v)=>s+v,0)/arr.length
+  }));
+}
+
 function exportMyPDF(){
   if(!CU)return;
-  const ci=myCI();
+  const ci=[...myCI()].sort((a,b)=>a.date.localeCompare(b.date));
   const { jsPDF } = window.jspdf;
   const doc=new jsPDF();
-  doc.setFontSize(16);
-  doc.text('Shredlane — Progress Report',14,16);
-  doc.setFontSize(11);
-  doc.text('Name: '+CU.name,14,26);
-  doc.text('Email: '+CU.email,14,32);
-  doc.text('Goal: '+CU.goal,14,38);
-  if(CU.baseWeight)doc.text('Starting weight: '+CU.baseWeight+' kg   Starting waist: '+CU.baseWaist+' in',14,44);
-  doc.text('Generated: '+today(),14,50);
+  const greenRGB=[126,224,0];
 
-  let y=62;
+  // ── Header ──
+  doc.setFillColor(14,14,14);
+  doc.rect(0,0,210,28,'F');
+  doc.setTextColor(...greenRGB);
+  doc.setFontSize(20);
+  doc.setFont(undefined,'bold');
+  doc.text('SHREDLANE',14,13);
   doc.setFontSize(10);
+  doc.setTextColor(255,255,255);
+  doc.setFont(undefined,'normal');
+  doc.text('Track. Execute. Transform.',14,20);
+  doc.setFontSize(12);
+  doc.text('PROGRESS REPORT CARD',196,16,{align:'right'});
+  doc.setFontSize(9);
+  doc.setTextColor(200,200,200);
+  doc.text('Generated '+today(),196,22,{align:'right'});
+
+  doc.setTextColor(20,20,20);
+  let y=38;
+  doc.setFontSize(13);
+  doc.setFont(undefined,'bold');
+  doc.text(CU.name,14,y);
+  doc.setFont(undefined,'normal');
+  doc.setFontSize(10);
+  doc.text(CU.email+'   ·   Goal: '+CU.goal,14,y+6);
+  y+=16;
+
+  // ── Summary stats ──
+  const n=ci.length;
+  const last=ci[n-1], first=ci[0];
+  const avg=(arr)=>arr.length?(arr.reduce((s,v)=>s+v,0)/arr.length):null;
+  const avgWeight=avg(ci.map(c=>c.weight).filter(v=>v));
+  const avgWaist=avg(ci.map(c=>c.waist).filter(v=>v));
+  const avgSteps=avg(ci.map(c=>c.steps).filter(v=>v));
+  const avgSleep=avg(ci.map(c=>c.sleep).filter(v=>v));
+  const avgHunger=avg(ci.map(c=>c.hunger).filter(v=>v));
+  const wChange = (CU.baseWeight&&last) ? (last.weight-CU.baseWeight) : (n>=2?(last.weight-first.weight):null);
+  const waChange = (CU.baseWaist&&last) ? (last.waist-CU.baseWaist) : (n>=2?(last.waist-first.waist):null);
+
+  doc.setDrawColor(220,220,220);
+  doc.setFillColor(248,248,248);
+  doc.roundedRect(14,y,182,32,2,2,'FD');
+  doc.setFontSize(9);
+  doc.setTextColor(100,100,100);
+  const col=[20,60,100,142];
+  doc.text('STARTING',col[0],y+8); doc.text('CURRENT',col[1],y+8); doc.text('TOTAL CHANGE',col[2],y+8); doc.text('CHECK-INS',col[3],y+8);
+  doc.setFontSize(12);
+  doc.setTextColor(20,20,20);
+  doc.setFont(undefined,'bold');
+  doc.text((CU.baseWeight?CU.baseWeight+' kg':'—'),col[0],y+16);
+  doc.text((CU.baseWaist?CU.baseWaist+' in':'—'),col[0],y+23);
+  doc.text((last?last.weight+' kg':'—'),col[1],y+16);
+  doc.text((last?last.waist+' in':'—'),col[1],y+23);
+  doc.setTextColor(wChange==null?20:(wChange<=0?126:200), wChange==null?20:(wChange<=0?224:50), wChange==null?20:(wChange<=0?0:50));
+  doc.text(wChange!=null?((wChange>0?'+':'')+wChange.toFixed(1)+' kg'):'—',col[2],y+16);
+  doc.setTextColor(waChange==null?20:(waChange<=0?126:200), waChange==null?20:(waChange<=0?224:50), waChange==null?20:(waChange<=0?0:50));
+  doc.text(waChange!=null?((waChange>0?'+':'')+waChange.toFixed(1)+' in'):'—',col[2],y+23);
+  doc.setTextColor(20,20,20);
+  doc.text(String(n),col[3],y+16);
+  doc.setFont(undefined,'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(120,120,120);
+  doc.text('weight / waist',col[0],y+29);
+  doc.text('weight / waist',col[1],y+29);
+  doc.text('vs starting point',col[2],y+29);
+  doc.text('day streak: '+calcStreak(ci),col[3],y+29);
+  y+=42;
+
+  // ── Averages over the period ──
+  doc.setFontSize(11);
+  doc.setTextColor(20,20,20);
+  doc.setFont(undefined,'bold');
+  doc.text('Averages Over This Period',14,y);
+  doc.setFont(undefined,'normal');
+  y+=6;
+  doc.setFontSize(9);
+  const avgLine=[
+    ['Avg weight',avgWeight!=null?avgWeight.toFixed(1)+' kg':'—'],
+    ['Avg waist',avgWaist!=null?avgWaist.toFixed(1)+' in':'—'],
+    ['Avg steps',avgSteps!=null?Math.round(avgSteps).toLocaleString():'—'],
+    ['Avg sleep',avgSleep!=null?avgSleep.toFixed(1)+' hrs':'—'],
+    ['Avg hunger',avgHunger!=null?avgHunger.toFixed(1)+'/10':'—'],
+  ];
+  avgLine.forEach((row,i)=>{
+    const x=14+i*36;
+    doc.setTextColor(120,120,120);
+    doc.text(row[0],x,y);
+    doc.setTextColor(20,20,20);
+    doc.setFont(undefined,'bold');
+    doc.text(row[1],x,y+6);
+    doc.setFont(undefined,'normal');
+  });
+  y+=16;
+
+  // ── Weekly trend tables (weight & waist) ──
+  const wkW=weeklyAverages(ci,'weight');
+  const wkWa=weeklyAverages(ci,'waist');
+  if(wkW.length||wkWa.length){
+    doc.setFontSize(11);
+    doc.setFont(undefined,'bold');
+    doc.text('Weekly Trend Averages',14,y);
+    doc.setFont(undefined,'normal');
+    y+=7;
+    doc.setFontSize(9);
+    doc.setTextColor(100,100,100);
+    doc.text('Week',14,y);
+    doc.text('Avg Weight (kg)',60,y);
+    doc.text('Avg Waist (in)',120,y);
+    y+=3;
+    doc.setDrawColor(220,220,220);
+    doc.line(14,y,196,y);
+    y+=6;
+    doc.setTextColor(20,20,20);
+    const wkCount=Math.max(wkW.length,wkWa.length);
+    for(let i=0;i<wkCount;i++){
+      if(y>275){doc.addPage();y=20;}
+      const label=(wkW[i]&&wkW[i].week)||(wkWa[i]&&wkWa[i].week)||('Week '+(i+1));
+      doc.text(label,14,y);
+      doc.text(wkW[i]?wkW[i].avg.toFixed(1):'—',60,y);
+      doc.text(wkWa[i]?wkWa[i].avg.toFixed(1):'—',120,y);
+      y+=6;
+    }
+    y+=6;
+  }
+
+  // ── Daily log table ──
+  if(y>250){doc.addPage();y=20;}
+  doc.setFontSize(11);
+  doc.setFont(undefined,'bold');
+  doc.text('Daily Check-in Log',14,y);
+  doc.setFont(undefined,'normal');
+  y+=8;
+  doc.setFontSize(9);
+  doc.setTextColor(100,100,100);
   doc.text('Date',14,y);
   doc.text('Wt(kg)',54,y);
   doc.text('Waist(in)',78,y);
@@ -1332,15 +1474,23 @@ function exportMyPDF(){
   doc.text('Sleep',130,y);
   doc.text('Hunger',152,y);
   doc.text('Notes',176,y);
-  y+=4;
+  y+=3;
+  doc.setDrawColor(220,220,220);
   doc.line(14,y,196,y);
   y+=6;
+  doc.setTextColor(20,20,20);
 
   if(!ci.length){
     doc.text('No check-ins recorded yet.',14,y);
   }else{
-    [...ci].sort((a,b)=>a.date.localeCompare(b.date)).forEach(c=>{
-      if(y>280){doc.addPage();y=20;}
+    ci.forEach((c,i)=>{
+      if(y>280){
+        doc.addPage();y=20;
+        doc.setFontSize(9);doc.setTextColor(100,100,100);
+        doc.text('Date',14,y);doc.text('Wt(kg)',54,y);doc.text('Waist(in)',78,y);doc.text('Steps',106,y);doc.text('Sleep',130,y);doc.text('Hunger',152,y);doc.text('Notes',176,y);
+        y+=3;doc.line(14,y,196,y);y+=6;doc.setTextColor(20,20,20);
+      }
+      if(i%2===1){doc.setFillColor(248,248,248);doc.rect(12,y-4,184,6,'F');}
       doc.text(String(c.date),14,y);
       doc.text(String(c.weight??''),54,y);
       doc.text(String(c.waist??''),78,y);
@@ -1349,11 +1499,17 @@ function exportMyPDF(){
       doc.text(String(c.hunger??''),152,y);
       const notes=(c.notes||'').slice(0,28);
       doc.text(notes,176,y);
-      y+=7;
+      y+=6;
     });
   }
-  doc.save('shredlane-'+CU.name.replace(/\s+/g,'_')+'-'+today()+'.pdf');
-  toast('📄 PDF downloaded','g');
+
+  // Footer
+  doc.setFontSize(8);
+  doc.setTextColor(150,150,150);
+  doc.text('Shredlane Coaching · shredlane1@gmail.com · +254 705 671 119',14,290);
+
+  doc.save('shredlane-report-'+CU.name.replace(/\s+/g,'_')+'-'+today()+'.pdf');
+  toast('📄 Report card downloaded','g');
 }
 
 // ═══════════════════════════════════════
