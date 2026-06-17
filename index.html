@@ -277,6 +277,27 @@ input[type=range]::-webkit-slider-thumb:active{transform:scale(1.2);}
 .cml{font-size:9px;color:var(--gry);font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-top:2px;}
 .approve-btn{background:var(--grn);color:#000;border:none;border-radius:6px;padding:6px 12px;font-family:'Barlow',sans-serif;font-size:11px;font-weight:700;cursor:pointer;margin-left:auto;}
 .reject-btn{background:var(--red);color:#fff;border:none;border-radius:6px;padding:6px 12px;font-family:'Barlow',sans-serif;font-size:11px;font-weight:700;cursor:pointer;margin-left:6px;}
+/* ── Habit toggles ── */
+.habit-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px}
+.habit-item{background:var(--dark2);border:1px solid var(--bdr2);border-radius:10px;padding:12px;display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;transition:.15s;-webkit-tap-highlight-color:transparent}
+.habit-item.on{border-color:var(--grn);background:var(--grn-dim)}
+.habit-icon{font-size:22px}
+.habit-lbl{font-size:11px;font-weight:700;color:var(--gry);text-align:center;line-height:1.3}
+.habit-item.on .habit-lbl{color:var(--grn)}
+.habit-badge{font-size:13px;font-weight:800;color:var(--gry)}
+.habit-item.on .habit-badge{color:var(--grn)}
+/* ── Water counter ── */
+.water-wrap{display:flex;align-items:center;justify-content:space-between;margin-top:6px}
+.water-glasses{display:flex;gap:5px;flex-wrap:wrap;flex:1}
+.water-glass{font-size:22px;opacity:.2;cursor:pointer;transition:.1s;-webkit-tap-highlight-color:transparent}
+.water-glass.full{opacity:1}
+.water-btns{display:flex;flex-direction:column;gap:6px;margin-left:12px}
+.water-btn{background:var(--dark2);border:1px solid var(--bdr2);border-radius:8px;width:36px;height:36px;font-size:18px;color:var(--wht);cursor:pointer;display:flex;align-items:center;justify-content:center}
+.water-lbl{font-size:11px;color:var(--gry);margin-top:6px}
+/* ── History total-lost banner ── */
+.tl-banner{background:linear-gradient(135deg,#1a2a00,#0e1a00);border:1px solid rgba(126,224,0,.3);border-radius:12px;padding:14px 16px;margin-bottom:14px;text-align:center}
+.tl-main{font-size:18px;font-weight:800;color:var(--grn);font-family:'Barlow Condensed',sans-serif;letter-spacing:.5px}
+.tl-sub{font-size:11px;color:var(--gry);margin-top:3px}
 
 /* TOAST */
 #toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(16px);background:var(--dark2);color:var(--wht);border:1px solid var(--bdr2);padding:10px 20px;border-radius:28px;font-size:13px;font-weight:600;opacity:0;transition:all .3s;white-space:nowrap;z-index:9999;pointer-events:none;box-shadow:0 8px 32px rgba(0,0,0,.6);}
@@ -543,6 +564,35 @@ input[type=range]::-webkit-slider-thumb:active{transform:scale(1.2);}
       <div class="ci-grp" style="margin-bottom:0"><div class="ci-lbl">Hunger level <span class="ci-lv" id="ciHuL" style="color:var(--grn)">5</span></div><input type="range" id="hungR" min="1" max="10" step="1" value="5" oninput="onHu(this.value)"><div class="rng-mks"><span class="rmk">1 Full</span><span class="rmk">5 Moderate</span><span class="rmk">10 Starving</span></div></div>
     </div>
     <div class="card"><div class="card-lbl">Notes (optional)</div><textarea class="ci-in" id="ciNotes" rows="3" placeholder="How did today feel?" style="resize:vertical;font-family:'Barlow',sans-serif;font-size:14px;line-height:1.5"></textarea></div>
+
+    <div class="card">
+      <div class="card-lbl">Habit Compliance</div>
+      <div class="habit-grid">
+        <div class="habit-item" id="hProtein" onclick="toggleHabit('protein')">
+          <div class="habit-icon">🥩</div>
+          <div class="habit-lbl">Hit protein target today?</div>
+          <div class="habit-badge" id="hProteinBadge">✗ No</div>
+        </div>
+        <div class="habit-item" id="hWorkout" onclick="toggleHabit('workout')">
+          <div class="habit-icon">🏋️</div>
+          <div class="habit-lbl">Completed scheduled workout?</div>
+          <div class="habit-badge" id="hWorkoutBadge">✗ No</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-lbl">Water Intake <span class="ci-lv" id="ciWaterL">0 glasses</span></div>
+      <div class="water-wrap">
+        <div class="water-glasses" id="waterGlasses"></div>
+        <div class="water-btns">
+          <button class="water-btn" onclick="adjustWater(1)">+</button>
+          <button class="water-btn" onclick="adjustWater(-1)">−</button>
+        </div>
+      </div>
+      <div class="water-lbl">Target: 8 glasses/day · Tap a glass to set</div>
+    </div>
+
     <button class="save-btn" id="saveCIBtn" onclick="saveCI()">🔥 Save Check-in</button>
   </div>
 
@@ -550,10 +600,17 @@ input[type=range]::-webkit-slider-thumb:active{transform:scale(1.2);}
   <div class="scr" id="scr-history">
     <div class="scr-ttl">HISTORY</div>
     <div class="scr-sub">Your last 30 check-ins</div>
-    <button class="b-secondary" style="width:auto;padding:10px 16px;margin-bottom:12px" onclick="exportMyPDF()">📄 Download my records (PDF)</button>
+    <div class="tl-banner" id="tlBanner" style="display:none">
+      <div class="tl-main" id="tlMain"></div>
+      <div class="tl-sub" id="tlSub"></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <button class="b-secondary" style="width:auto;padding:10px 16px" onclick="exportMyPDF()">📄 Download Report Card (PDF)</button>
+      <button class="b-secondary" style="width:auto;padding:10px 16px" onclick="exportMyCSV()">⬇️ Export my data (CSV)</button>
+    </div>
     <div class="card" style="padding:0;overflow:hidden">
       <div style="overflow-x:auto">
-        <table class="htbl"><thead><tr><th>Date</th><th>Wt</th><th>Wst</th><th>Steps</th><th>Sleep</th><th>Hung</th></tr></thead>
+        <table class="htbl"><thead><tr><th>Date</th><th>Wt</th><th>Wst</th><th>Steps</th><th>Sleep</th><th>Hung</th><th>Pro</th><th>Wkt</th></tr></thead>
         <tbody id="histBody"><tr><td colspan="6" style="text-align:center;padding:28px;color:var(--gry);font-family:Barlow,sans-serif">No check-ins yet</td></tr></tbody></table>
       </div>
     </div>
@@ -896,6 +953,8 @@ function pickDate(ds){
     document.getElementById('sleepR').value=existing.sleep||7;document.getElementById('ciSlL').textContent=(existing.sleep||7)+' hrs';
     document.getElementById('hungR').value=existing.hunger||5;onHu(existing.hunger||5);
     document.getElementById('ciNotes').value=existing.notes||'';
+    habitState={protein:!!existing.protein,workout:!!existing.workout};renderHabits();
+    waterCount=existing.water||0;renderWater();
     renderSpeedo(existing.steps||0);
     toast('📋 Existing entry loaded — edit and save to update','a');
   } else {
@@ -904,6 +963,8 @@ function pickDate(ds){
     document.getElementById('sleepR').value=7;document.getElementById('ciSlL').textContent='7.0 hrs';
     document.getElementById('hungR').value=5;onHu(5);
     document.getElementById('ciNotes').value='';
+    habitState={protein:false,workout:false};renderHabits();
+    waterCount=0;renderWater();
     renderSpeedo(0);
   }
   // Close calendar after short delay
@@ -939,11 +1000,46 @@ function initCI(){
   document.getElementById('sleepR').value=7;document.getElementById('ciSlL').textContent='7.0 hrs';
   document.getElementById('hungR').value=5;onHu(5);
   document.getElementById('ciNotes').value='';
+  habitState={protein:false,workout:false};renderHabits();
+  waterCount=0;renderWater();
   renderSpeedo(0);
 }
 
 function onSt(v){const n=parseInt(v)||0;document.getElementById('ciStL').textContent=n.toLocaleString();renderSpeedo(n);}
 function onHu(v){v=parseInt(v);document.getElementById('ciHuL').textContent=v+' — '+(HU_LBL[v]||'');}
+
+// ── Habit toggle state ──
+let habitState={protein:false,workout:false};
+function toggleHabit(key){
+  habitState[key]=!habitState[key];
+  renderHabits();
+}
+function renderHabits(){
+  ['protein','workout'].forEach(k=>{
+    const el=document.getElementById('h'+k.charAt(0).toUpperCase()+k.slice(1));
+    const badge=document.getElementById('h'+k.charAt(0).toUpperCase()+k.slice(1)+'Badge');
+    if(!el)return;
+    el.classList.toggle('on',habitState[k]);
+    badge.textContent=habitState[k]?'✓ Yes':'✗ No';
+  });
+}
+
+// ── Water counter ──
+let waterCount=0;
+function adjustWater(d){
+  waterCount=Math.max(0,Math.min(12,waterCount+d));
+  renderWater();
+}
+function setWater(n){waterCount=n;renderWater();}
+function renderWater(){
+  const el=document.getElementById('waterGlasses');
+  const lbl=document.getElementById('ciWaterL');
+  if(!el)return;
+  el.innerHTML=Array.from({length:8},(_,i)=>
+    `<span class="water-glass${i<waterCount?' full':''}" onclick="setWater(${i+1})">💧</span>`
+  ).join('');
+  if(lbl)lbl.textContent=waterCount+' glass'+(waterCount===1?'':'es')+(waterCount>=8?' ✓':'');
+}
 
 async function saveCI(){
   if(!CU)return;
@@ -959,7 +1055,7 @@ async function saveCI(){
   const list=(gDB().checkins[CU.email]||[]).slice();
   const t=selectedDate||today();
   const idx=list.findIndex(c=>c.date===t);
-  const entry={date:t,weight:wt,waist:wa,steps:st,sleep:sl,hunger:hu,notes:no};
+  const entry={date:t,weight:wt,waist:wa,steps:st,sleep:sl,hunger:hu,notes:no,protein:habitState.protein,workout:habitState.workout,water:waterCount};
   if(idx>=0)list[idx]=entry;
   else list.push(entry);
   try{
@@ -1167,14 +1263,43 @@ function calcStreak(ci){
 // HISTORY
 // ═══════════════════════════════════════
 function renderHistory(){
-  const ci=[...myCI()].reverse().slice(0,30);
+  const u=VIEWUSER||CU;
+  const ci=[...myCI()].sort((a,b)=>a.date.localeCompare(b.date));
+  // Total lost banner
+  const banner=document.getElementById('tlBanner');
+  const tlMain=document.getElementById('tlMain');
+  const tlSub=document.getElementById('tlSub');
+  if(banner&&ci.length>=1&&u){
+    const last=ci[ci.length-1];
+    const baseW=u.baseWeight, baseWa=u.baseWaist;
+    const wLost=baseW?(baseW-last.weight):null;
+    const waLost=baseWa?(baseWa-last.waist):null;
+    if(wLost!==null||waLost!==null){
+      banner.style.display='block';
+      const parts=[];
+      if(wLost!==null){
+        const clr=wLost>0?'#7EE000':'#FF3B30';
+        parts.push(`<span style="color:${clr}">${wLost>0?'▼':'▲'} ${Math.abs(wLost).toFixed(1)} kg</span>`);
+      }
+      if(waLost!==null){
+        const clr=waLost>0?'#7EE000':'#FF3B30';
+        parts.push(`<span style="color:${clr}">${waLost>0?'▼':'▲'} ${Math.abs(waLost).toFixed(1)} in waist</span>`);
+      }
+      tlMain.innerHTML=(wLost>0||waLost>0)?'🔥 '+parts.join('  ·  ')+' since you started!':parts.join('  ·  ')+' from baseline';
+      tlSub.textContent=ci.length+' check-in'+(ci.length===1?'':'s')+' logged · streak: '+calcStreak(ci)+' days';
+    } else banner.style.display='none';
+  } else if(banner) banner.style.display='none';
+
+  const recent=[...ci].reverse().slice(0,30);
   const tb=document.getElementById('histBody');
-  if(!ci.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;padding:28px;color:var(--gry);font-family:Barlow,sans-serif">No check-ins yet</td></tr>';return;}
-  tb.innerHTML=ci.map(c=>`<tr>
+  if(!recent.length){tb.innerHTML='<tr><td colspan="8" style="text-align:center;padding:28px;color:var(--gry);font-family:Barlow,sans-serif">No check-ins yet</td></tr>';return;}
+  tb.innerHTML=recent.map(c=>`<tr>
     <td style="font-family:Barlow,sans-serif;color:var(--gry)">${new Date(c.date+'T00:00:00').toLocaleDateString('en-KE',{day:'2-digit',month:'short'})}</td>
     <td>${c.weight??'—'}</td><td>${c.waist??'—'}</td>
     <td class="${(c.steps||0)>=10000?'sh':'sm'}">${c.steps?(c.steps/1000).toFixed(1)+'K':'—'}</td>
     <td>${c.sleep??'—'}</td><td>${c.hunger??'—'}</td>
+    <td style="color:${c.protein?'var(--grn)':'var(--red)'}">${c.protein?'✓':'✗'}</td>
+    <td style="color:${c.workout?'var(--grn)':'var(--red)'}">${c.workout?'✓':'✗'}</td>
   </tr>`).join('');
 }
 
@@ -1292,15 +1417,15 @@ function csvEscape(v){
 function exportAllCSV(){
   if(!CU||CU.role!=='admin')return;
   const d=gDB();
-  const rows=[['Name','Email','Goal','Status','Joined','Date','Weight (kg)','Waist (in)','Steps','Sleep (hrs)','Hunger (1-10)','Notes']];
+  const rows=[['Name','Email','Goal','Status','Joined','Date','Weight (kg)','Waist (in)','Steps','Sleep (hrs)','Hunger (1-10)','Water (glasses)','Protein Hit','Workout Done','Notes']];
   const members=Object.values(d.users).filter(u=>u.role!=='admin');
   members.forEach(u=>{
     const ci=d.checkins[u.email]||[];
     if(!ci.length){
-      rows.push([u.name,u.email,u.goal,u.status,u.joined,'','','','','','','']);
+      rows.push([u.name,u.email,u.goal,u.status,u.joined,'','','','','','','','','','']);
     }else{
       ci.forEach(c=>{
-        rows.push([u.name,u.email,u.goal,u.status,u.joined,c.date,c.weight,c.waist,c.steps,c.sleep,c.hunger,c.notes||'']);
+        rows.push([u.name,u.email,u.goal,u.status,u.joined,c.date,c.weight,c.waist,c.steps,c.sleep,c.hunger,c.water??'',c.protein?'Yes':'No',c.workout?'Yes':'No',c.notes||'']);
       });
     }
   });
@@ -1309,209 +1434,260 @@ function exportAllCSV(){
   toast('⬇️ CSV downloaded','g');
 }
 
-function weeklyAverages(ci,metric){
-  if(!ci.length)return [];
-  const sorted=[...ci].sort((a,b)=>a.date.localeCompare(b.date));
-  const startDate=new Date(sorted[0].date+'T00:00:00');
-  const weeks={};
-  sorted.forEach(c=>{
-    const dayN=Math.floor((new Date(c.date+'T00:00:00')-startDate)/(7*86400000));
-    const wk='Week '+(dayN+1);
-    if(!weeks[wk])weeks[wk]=[];
-    const v=c[metric];
-    if(v)weeks[wk].push(v);
-  });
-  return Object.entries(weeks).filter(([,arr])=>arr.length).map(([wk,arr])=>({
-    week:wk, avg: arr.reduce((s,v)=>s+v,0)/arr.length
-  }));
+function exportMyCSV(){
+  if(!CU)return;
+  const u=VIEWUSER||CU;
+  const ci=[...(gDB().checkins[u.email]||[])].sort((a,b)=>a.date.localeCompare(b.date));
+  const rows=[['Date','Weight (kg)','Waist (in)','Steps','Sleep (hrs)','Hunger (1-10)','Water (glasses)','Protein Hit','Workout Done','Notes']];
+  ci.forEach(c=>rows.push([c.date,c.weight??'',c.waist??'',c.steps??'',c.sleep??'',c.hunger??'',c.water??'',c.protein?'Yes':'No',c.workout?'Yes':'No',c.notes||'']));
+  const csv=rows.map(r=>r.map(csvEscape).join(',')).join('\n');
+  downloadBlob(csv,'shredlane-'+u.name.replace(/\s+/g,'_')+'-'+today()+'.csv','text/csv');
+  toast('⬇️ CSV exported','g');
 }
 
 function exportMyPDF(){
   if(!CU)return;
-  const ci=[...myCI()].sort((a,b)=>a.date.localeCompare(b.date));
+  const u=VIEWUSER||CU;
+  const ci=[...(gDB().checkins[u.email]||[])].sort((a,b)=>a.date.localeCompare(b.date));
   const { jsPDF } = window.jspdf;
   const doc=new jsPDF();
-  const greenRGB=[126,224,0];
 
-  // ── Header ──
-  doc.setFillColor(14,14,14);
-  doc.rect(0,0,210,28,'F');
-  doc.setTextColor(...greenRGB);
-  doc.setFontSize(20);
-  doc.setFont(undefined,'bold');
-  doc.text('SHREDLANE',14,13);
-  doc.setFontSize(10);
-  doc.setTextColor(255,255,255);
-  doc.setFont(undefined,'normal');
-  doc.text('Track. Execute. Transform.',14,20);
-  doc.setFontSize(12);
-  doc.text('PROGRESS REPORT CARD',196,16,{align:'right'});
-  doc.setFontSize(9);
-  doc.setTextColor(200,200,200);
-  doc.text('Generated '+today(),196,22,{align:'right'});
+  // helpers
+  const avg=(arr)=>arr.length?arr.reduce((s,v)=>s+v,0)/arr.length:null;
+  const pct=(arr,key)=>arr.length?Math.round(arr.filter(c=>c[key]).length/arr.length*100):null;
+  const fmtAvg=(v,dp=1)=>v!=null?v.toFixed(dp):'—';
+  const chg=(from,to)=>to!=null&&from!=null?(to-from):null;
+  const chgStr=(v,unit,good='down')=>{
+    if(v==null)return '—';
+    const better=(good==='down')?v<=0:v>=0;
+    return (v>0?'+':'')+v.toFixed(1)+' '+unit;
+  };
 
-  doc.setTextColor(20,20,20);
-  let y=38;
-  doc.setFontSize(13);
-  doc.setFont(undefined,'bold');
-  doc.text(CU.name,14,y);
-  doc.setFont(undefined,'normal');
-  doc.setFontSize(10);
-  doc.text(CU.email+'   ·   Goal: '+CU.goal,14,y+6);
-  y+=16;
-
-  // ── Summary stats ──
-  const n=ci.length;
-  const last=ci[n-1], first=ci[0];
-  const avg=(arr)=>arr.length?(arr.reduce((s,v)=>s+v,0)/arr.length):null;
-  const avgWeight=avg(ci.map(c=>c.weight).filter(v=>v));
-  const avgWaist=avg(ci.map(c=>c.waist).filter(v=>v));
-  const avgSteps=avg(ci.map(c=>c.steps).filter(v=>v));
-  const avgSleep=avg(ci.map(c=>c.sleep).filter(v=>v));
-  const avgHunger=avg(ci.map(c=>c.hunger).filter(v=>v));
-  const wChange = (CU.baseWeight&&last) ? (last.weight-CU.baseWeight) : (n>=2?(last.weight-first.weight):null);
-  const waChange = (CU.baseWaist&&last) ? (last.waist-CU.baseWaist) : (n>=2?(last.waist-first.waist):null);
-
-  doc.setDrawColor(220,220,220);
-  doc.setFillColor(248,248,248);
-  doc.roundedRect(14,y,182,32,2,2,'FD');
-  doc.setFontSize(9);
-  doc.setTextColor(100,100,100);
-  const col=[20,60,100,142];
-  doc.text('STARTING',col[0],y+8); doc.text('CURRENT',col[1],y+8); doc.text('TOTAL CHANGE',col[2],y+8); doc.text('CHECK-INS',col[3],y+8);
-  doc.setFontSize(12);
-  doc.setTextColor(20,20,20);
-  doc.setFont(undefined,'bold');
-  doc.text((CU.baseWeight?CU.baseWeight+' kg':'—'),col[0],y+16);
-  doc.text((CU.baseWaist?CU.baseWaist+' in':'—'),col[0],y+23);
-  doc.text((last?last.weight+' kg':'—'),col[1],y+16);
-  doc.text((last?last.waist+' in':'—'),col[1],y+23);
-  doc.setTextColor(wChange==null?20:(wChange<=0?126:200), wChange==null?20:(wChange<=0?224:50), wChange==null?20:(wChange<=0?0:50));
-  doc.text(wChange!=null?((wChange>0?'+':'')+wChange.toFixed(1)+' kg'):'—',col[2],y+16);
-  doc.setTextColor(waChange==null?20:(waChange<=0?126:200), waChange==null?20:(waChange<=0?224:50), waChange==null?20:(waChange<=0?0:50));
-  doc.text(waChange!=null?((waChange>0?'+':'')+waChange.toFixed(1)+' in'):'—',col[2],y+23);
-  doc.setTextColor(20,20,20);
-  doc.text(String(n),col[3],y+16);
-  doc.setFont(undefined,'normal');
-  doc.setFontSize(8);
-  doc.setTextColor(120,120,120);
-  doc.text('weight / waist',col[0],y+29);
-  doc.text('weight / waist',col[1],y+29);
-  doc.text('vs starting point',col[2],y+29);
-  doc.text('day streak: '+calcStreak(ci),col[3],y+29);
-  y+=42;
-
-  // ── Averages over the period ──
-  doc.setFontSize(11);
-  doc.setTextColor(20,20,20);
-  doc.setFont(undefined,'bold');
-  doc.text('Averages Over This Period',14,y);
-  doc.setFont(undefined,'normal');
-  y+=6;
-  doc.setFontSize(9);
-  const avgLine=[
-    ['Avg weight',avgWeight!=null?avgWeight.toFixed(1)+' kg':'—'],
-    ['Avg waist',avgWaist!=null?avgWaist.toFixed(1)+' in':'—'],
-    ['Avg steps',avgSteps!=null?Math.round(avgSteps).toLocaleString():'—'],
-    ['Avg sleep',avgSleep!=null?avgSleep.toFixed(1)+' hrs':'—'],
-    ['Avg hunger',avgHunger!=null?avgHunger.toFixed(1)+'/10':'—'],
-  ];
-  avgLine.forEach((row,i)=>{
-    const x=14+i*36;
-    doc.setTextColor(120,120,120);
-    doc.text(row[0],x,y);
-    doc.setTextColor(20,20,20);
-    doc.setFont(undefined,'bold');
-    doc.text(row[1],x,y+6);
-    doc.setFont(undefined,'normal');
-  });
-  y+=16;
-
-  // ── Weekly trend tables (weight & waist) ──
-  const wkW=weeklyAverages(ci,'weight');
-  const wkWa=weeklyAverages(ci,'waist');
-  if(wkW.length||wkWa.length){
-    doc.setFontSize(11);
-    doc.setFont(undefined,'bold');
-    doc.text('Weekly Trend Averages',14,y);
-    doc.setFont(undefined,'normal');
-    y+=7;
-    doc.setFontSize(9);
-    doc.setTextColor(100,100,100);
-    doc.text('Week',14,y);
-    doc.text('Avg Weight (kg)',60,y);
-    doc.text('Avg Waist (in)',120,y);
-    y+=3;
-    doc.setDrawColor(220,220,220);
-    doc.line(14,y,196,y);
-    y+=6;
-    doc.setTextColor(20,20,20);
-    const wkCount=Math.max(wkW.length,wkWa.length);
-    for(let i=0;i<wkCount;i++){
-      if(y>275){doc.addPage();y=20;}
-      const label=(wkW[i]&&wkW[i].week)||(wkWa[i]&&wkWa[i].week)||('Week '+(i+1));
-      doc.text(label,14,y);
-      doc.text(wkW[i]?wkW[i].avg.toFixed(1):'—',60,y);
-      doc.text(wkWa[i]?wkWa[i].avg.toFixed(1):'—',120,y);
-      y+=6;
-    }
-    y+=6;
-  }
-
-  // ── Daily log table ──
-  if(y>250){doc.addPage();y=20;}
-  doc.setFontSize(11);
-  doc.setFont(undefined,'bold');
-  doc.text('Daily Check-in Log',14,y);
-  doc.setFont(undefined,'normal');
-  y+=8;
-  doc.setFontSize(9);
-  doc.setTextColor(100,100,100);
-  doc.text('Date',14,y);
-  doc.text('Wt(kg)',54,y);
-  doc.text('Waist(in)',78,y);
-  doc.text('Steps',106,y);
-  doc.text('Sleep',130,y);
-  doc.text('Hunger',152,y);
-  doc.text('Notes',176,y);
-  y+=3;
-  doc.setDrawColor(220,220,220);
-  doc.line(14,y,196,y);
-  y+=6;
-  doc.setTextColor(20,20,20);
-
-  if(!ci.length){
-    doc.text('No check-ins recorded yet.',14,y);
-  }else{
-    ci.forEach((c,i)=>{
-      if(y>280){
-        doc.addPage();y=20;
-        doc.setFontSize(9);doc.setTextColor(100,100,100);
-        doc.text('Date',14,y);doc.text('Wt(kg)',54,y);doc.text('Waist(in)',78,y);doc.text('Steps',106,y);doc.text('Sleep',130,y);doc.text('Hunger',152,y);doc.text('Notes',176,y);
-        y+=3;doc.line(14,y,196,y);y+=6;doc.setTextColor(20,20,20);
-      }
-      if(i%2===1){doc.setFillColor(248,248,248);doc.rect(12,y-4,184,6,'F');}
-      doc.text(String(c.date),14,y);
-      doc.text(String(c.weight??''),54,y);
-      doc.text(String(c.waist??''),78,y);
-      doc.text(String((c.steps||0).toLocaleString()),106,y);
-      doc.text(String(c.sleep??''),130,y);
-      doc.text(String(c.hunger??''),152,y);
-      const notes=(c.notes||'').slice(0,28);
-      doc.text(notes,176,y);
-      y+=6;
+  // Build weekly buckets
+  const sorted=ci;
+  function buildWeeks(entries){
+    if(!entries.length)return [];
+    const startDate=new Date(entries[0].date+'T00:00:00');
+    const map={};
+    entries.forEach(c=>{
+      const wn=Math.floor((new Date(c.date+'T00:00:00')-startDate)/(7*86400000));
+      if(!map[wn])map[wn]={n:wn,entries:[],start:c.date,end:c.date};
+      map[wn].entries.push(c);
+      if(c.date<map[wn].start)map[wn].start=c.date;
+      if(c.date>map[wn].end)map[wn].end=c.date;
     });
+    return Object.values(map).sort((a,b)=>a.n-b.n);
   }
+  const weeks=buildWeeks(sorted);
+
+  // ── Overall stats ──
+  const last=sorted[sorted.length-1];
+  const baseW=u.baseWeight, baseWa=u.baseWaist;
+  const wLost=baseW&&last?chg(baseW,last.weight):null;
+  const waLost=baseWa&&last?chg(baseWa,last.waist):null;
+  const overallAvgW=avg(sorted.map(c=>c.weight).filter(Boolean));
+  const overallAvgWa=avg(sorted.map(c=>c.waist).filter(Boolean));
+  const overallAvgSt=avg(sorted.map(c=>c.steps).filter(Boolean));
+  const overallAvgSl=avg(sorted.map(c=>c.sleep).filter(Boolean));
+  const overallAvgHu=avg(sorted.map(c=>c.hunger).filter(Boolean));
+  const overallAvgWt=avg(sorted.map(c=>c.water).filter(v=>v!=null));
+  const overallPro=pct(sorted,'protein');
+  const overallWkt=pct(sorted,'workout');
+  const stepsHits=sorted.filter(c=>(c.steps||0)>=10000).length;
+
+  // ═══ PAGE 1: HISTORICAL SUMMARY ═══
+  // Dark header bar
+  doc.setFillColor(14,14,14);
+  doc.rect(0,0,210,30,'F');
+  doc.setTextColor(126,224,0);
+  doc.setFontSize(22);doc.setFont(undefined,'bold');
+  doc.text('SHREDLANE',14,14);
+  doc.setFontSize(9);doc.setTextColor(200,200,200);doc.setFont(undefined,'normal');
+  doc.text('TRACK. EXECUTE. TRANSFORM.',14,21);
+  doc.setFontSize(13);doc.setTextColor(255,255,255);
+  doc.text('PROGRESS REPORT CARD',196,14,{align:'right'});
+  doc.setFontSize(9);doc.setTextColor(180,180,180);
+  doc.text('Generated '+today(),196,21,{align:'right'});
+
+  let y=40;
+  doc.setTextColor(20,20,20);
+  doc.setFontSize(14);doc.setFont(undefined,'bold');
+  doc.text(u.name,14,y);
+  doc.setFont(undefined,'normal');doc.setFontSize(9);doc.setTextColor(100,100,100);
+  doc.text(u.email+'   ·   Goal: '+u.goal,14,y+6);
+  y+=18;
+
+  // ── Summary headline box ──
+  doc.setFillColor(248,248,248);doc.setDrawColor(220,220,220);
+  doc.roundedRect(14,y,182,38,2,2,'FD');
+  const cols=[20,60,105,155];
+  doc.setFontSize(8);doc.setTextColor(120,120,120);
+  doc.text('STARTING',cols[0],y+8);doc.text('CURRENT',cols[1],y+8);doc.text('TOTAL CHANGE',cols[2],y+8);doc.text('PROGRAMME',cols[3],y+8);
+  doc.setFontSize(13);doc.setTextColor(20,20,20);doc.setFont(undefined,'bold');
+  doc.text(baseW?baseW+' kg':'—',cols[0],y+18);
+  doc.text(baseWa?baseWa+' in':'—',cols[0],y+26);
+  doc.text(last?last.weight+' kg':'—',cols[1],y+18);
+  doc.text(last?last.waist+' in':'—',cols[1],y+26);
+  // change in green/red
+  const wc=wLost, wac=waLost;
+  doc.setTextColor(wc==null?20:wc<=0?0:200, wc==null?20:wc<=0?150:50, 0);
+  doc.text(wc!=null?chgStr(wc,'kg'):'—',cols[2],y+18);
+  doc.setTextColor(wac==null?20:wac<=0?0:200, wac==null?20:wac<=0?150:50, 0);
+  doc.text(wac!=null?chgStr(wac,'in'):'—',cols[2],y+26);
+  doc.setTextColor(20,20,20);
+  doc.text(sorted.length+' check-ins',cols[3],y+18);
+  doc.text('Streak: '+calcStreak(sorted)+' days',cols[3],y+26);
+  doc.setFont(undefined,'normal');doc.setFontSize(8);doc.setTextColor(120,120,120);
+  doc.text('wt · waist',cols[0],y+33);doc.text('wt · waist',cols[1],y+33);
+  doc.text('vs baseline',cols[2],y+33);doc.text('consistency',cols[3],y+33);
+  y+=48;
+
+  // ── Averages row ──
+  doc.setFontSize(11);doc.setTextColor(20,20,20);doc.setFont(undefined,'bold');
+  doc.text('Programme Averages',14,y);y+=8;
+  const avgItems=[
+    ['Avg Weight',fmtAvg(overallAvgW)+' kg'],
+    ['Avg Waist',fmtAvg(overallAvgWa)+' in'],
+    ['Avg Steps',overallAvgSt!=null?Math.round(overallAvgSt).toLocaleString():'—'],
+    ['Avg Sleep',fmtAvg(overallAvgSl)+' hrs'],
+    ['Avg Hunger',fmtAvg(overallAvgHu)+'/10'],
+    ['Avg Water',fmtAvg(overallAvgWt)+' gl'],
+    ['Protein %',overallPro!=null?overallPro+'%':'—'],
+    ['Workout %',overallWkt!=null?overallWkt+'%':'—'],
+    ['Steps ≥10K',stepsHits+'/'+sorted.length],
+  ];
+  const acols=4,colW=45;
+  avgItems.forEach((item,i)=>{
+    const cx=14+(i%acols)*colW;
+    const cy=y+Math.floor(i/acols)*14;
+    doc.setFontSize(8);doc.setTextColor(120,120,120);doc.setFont(undefined,'normal');
+    doc.text(item[0],cx,cy);
+    doc.setFontSize(11);doc.setTextColor(20,20,20);doc.setFont(undefined,'bold');
+    doc.text(item[1],cx,cy+6);
+  });
+  y+=Math.ceil(avgItems.length/acols)*14+8;
+
+  // ═══ WEEKLY BREAKDOWN ═══
+  if(y>240){doc.addPage();y=20;}
+  doc.setFontSize(11);doc.setTextColor(20,20,20);doc.setFont(undefined,'bold');
+  doc.text('Week-by-Week Breakdown',14,y);y+=8;
+
+  weeks.forEach((wk,wi)=>{
+    if(y>260){doc.addPage();y=20;}
+    const entries=wk.entries;
+    const wAvg=avg(entries.map(c=>c.weight).filter(Boolean));
+    const waAvg=avg(entries.map(c=>c.waist).filter(Boolean));
+    const stAvg=avg(entries.map(c=>c.steps).filter(Boolean));
+    const slAvg=avg(entries.map(c=>c.sleep).filter(Boolean));
+    const huAvg=avg(entries.map(c=>c.hunger).filter(Boolean));
+    const wtAvg=avg(entries.map(c=>c.water).filter(v=>v!=null));
+    const proPct=pct(entries,'protein');
+    const wktPct=pct(entries,'workout');
+    const stHits=entries.filter(c=>(c.steps||0)>=10000).length;
+    const prevWk=wi>0?weeks[wi-1]:null;
+    const prevWAvg=prevWk?avg(prevWk.entries.map(c=>c.weight).filter(Boolean)):null;
+    const prevWaAvg=prevWk?avg(prevWk.entries.map(c=>c.waist).filter(Boolean)):null;
+    const wDiff=wAvg!=null&&prevWAvg!=null?chg(prevWAvg,wAvg):null;
+    const waDiff=waAvg!=null&&prevWaAvg!=null?chg(prevWaAvg,waAvg):null;
+    const notes=entries.filter(c=>c.notes).map(c=>c.notes).join(' / ').slice(0,120);
+
+    // Week header
+    doc.setFillColor(14,14,14);
+    doc.rect(14,y,182,8,'F');
+    doc.setTextColor(126,224,0);doc.setFontSize(9);doc.setFont(undefined,'bold');
+    doc.text('WEEK '+(wi+1)+'  ('+wk.start+' → '+wk.end+')',17,y+5.5);
+    doc.setTextColor(200,200,200);
+    doc.text(entries.length+' check-ins',193,y+5.5,{align:'right'});
+    y+=11;
+
+    // Stats row
+    const wcols=[17,52,90,128,155,176];
+    doc.setFontSize(8);doc.setTextColor(120,120,120);doc.setFont(undefined,'normal');
+    doc.text('AVG WEIGHT',wcols[0],y);
+    doc.text('AVG WAIST',wcols[1],y);
+    doc.text('AVG STEPS',wcols[2],y);
+    doc.text('SLEEP',wcols[3],y);
+    doc.text('PROTEIN',wcols[4],y);
+    doc.text('WORKOUT',wcols[5],y);
+    y+=5;
+    doc.setFontSize(11);doc.setFont(undefined,'bold');
+
+    // weight with vs prev
+    const wc2=wDiff,wac2=waDiff;
+    doc.setTextColor(20,20,20);doc.text(fmtAvg(wAvg)+' kg',wcols[0],y);
+    if(wc2!=null){doc.setFontSize(8);doc.setTextColor(wc2<=0?0:200,wc2<=0?150:50,0);doc.text((wc2>0?'+':'')+wc2.toFixed(1),wcols[0],y+5);}
+    doc.setTextColor(20,20,20);doc.setFontSize(11);doc.text(fmtAvg(waAvg)+' in',wcols[1],y);
+    if(wac2!=null){doc.setFontSize(8);doc.setTextColor(wac2<=0?0:200,wac2<=0?150:50,0);doc.text((wac2>0?'+':'')+wac2.toFixed(1),wcols[1],y+5);}
+    doc.setTextColor(20,20,20);doc.setFontSize(11);
+    doc.text(stAvg!=null?Math.round(stAvg).toLocaleString():'—',wcols[2],y);
+    doc.setFontSize(8);doc.setTextColor(120,120,120);doc.text(stHits+'/'+entries.length+' days at 10K',wcols[2],y+5);
+    doc.setFontSize(11);doc.setTextColor(20,20,20);
+    doc.text(fmtAvg(slAvg)+' hrs',wcols[3],y);
+    // compliance badges
+    const proClr=proPct!=null&&proPct>=80?[0,150,0]:[200,50,0];
+    const wktClr=wktPct!=null&&wktPct>=80?[0,150,0]:[200,50,0];
+    doc.setTextColor(...proClr);doc.text(proPct!=null?proPct+'%':'—',wcols[4],y);
+    doc.setTextColor(...wktClr);doc.text(wktPct!=null?wktPct+'%':'—',wcols[5],y);
+    y+=10;
+
+    // Notes
+    if(notes){
+      doc.setFontSize(8);doc.setTextColor(100,100,100);doc.setFont(undefined,'italic');
+      const wrapped=doc.splitTextToSize('Notes: '+notes,178);
+      doc.text(wrapped,17,y);
+      y+=wrapped.length*4+2;
+    } else {
+      y+=3;
+    }
+    doc.setDrawColor(230,230,230);doc.line(14,y,196,y);
+    y+=5;
+  });
+
+  // ═══ DAILY LOG ═══
+  if(y>240){doc.addPage();y=20;}
+  doc.setFontSize(11);doc.setTextColor(20,20,20);doc.setFont(undefined,'bold');
+  doc.text('Daily Check-in Log',14,y);y+=8;
+  const hdr=['Date','Wt','Wst','Steps','Slp','Hng','H₂O','Pro','Wkt'];
+  const hx=[14,40,58,75,100,118,133,148,162];
+  doc.setFontSize(8);doc.setTextColor(120,120,120);doc.setFont(undefined,'normal');
+  hdr.forEach((h,i)=>doc.text(h,hx[i],y));
+  y+=3;doc.setDrawColor(200,200,200);doc.line(14,y,196,y);y+=5;
+  doc.setTextColor(20,20,20);
+  sorted.forEach((c,i)=>{
+    if(y>280){
+      doc.addPage();y=20;
+      doc.setFontSize(8);doc.setTextColor(120,120,120);
+      hdr.forEach((h,i2)=>doc.text(h,hx[i2],y));
+      y+=3;doc.line(14,y,196,y);y+=5;doc.setTextColor(20,20,20);
+    }
+    if(i%2===1){doc.setFillColor(248,248,248);doc.rect(12,y-3,184,5.5,'F');}
+    doc.setFontSize(8);
+    doc.text(c.date,hx[0],y);
+    doc.text(String(c.weight??''),hx[1],y);
+    doc.text(String(c.waist??''),hx[2],y);
+    doc.text(c.steps?(c.steps/1000).toFixed(1)+'K':'—',hx[3],y);
+    doc.text(String(c.sleep??''),hx[4],y);
+    doc.text(String(c.hunger??''),hx[5],y);
+    doc.text(String(c.water??'—'),hx[6],y);
+    doc.setTextColor(c.protein?0:200,c.protein?150:50,0);
+    doc.text(c.protein?'✓':'✗',hx[7],y);
+    doc.setTextColor(c.workout?0:200,c.workout?150:50,0);
+    doc.text(c.workout?'✓':'✗',hx[8],y);
+    doc.setTextColor(20,20,20);
+    y+=5.5;
+  });
 
   // Footer
-  doc.setFontSize(8);
-  doc.setTextColor(150,150,150);
-  doc.text('Shredlane Coaching · shredlane1@gmail.com · +254 705 671 119',14,290);
+  const pageCount=doc.getNumberOfPages();
+  for(let p=1;p<=pageCount;p++){
+    doc.setPage(p);
+    doc.setFontSize(7);doc.setTextColor(150,150,150);
+    doc.text('Shredlane Coaching · shredlane1@gmail.com · +254 705 671 119 · Page '+p+' of '+pageCount,105,291,{align:'center'});
+  }
 
-  doc.save('shredlane-report-'+CU.name.replace(/\s+/g,'_')+'-'+today()+'.pdf');
+  doc.save('shredlane-report-'+u.name.replace(/\s+/g,'_')+'-'+today()+'.pdf');
   toast('📄 Report card downloaded','g');
 }
-
 // ═══════════════════════════════════════
 // TOAST
 // ═══════════════════════════════════════
