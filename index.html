@@ -1666,102 +1666,158 @@ function exportMyPDF(){
   }
 
   // ═══════════════════════════════════════
-  // PAGE 1: SUMMARY + TRAFFIC LIGHT DASHBOARD
+  // PAGE 1: COMPACT SUMMARY + STACKED CHART
   // ═══════════════════════════════════════
   // Header bar
   doc.setFillColor(14,14,14);
-  doc.rect(0,0,210,30,'F');
+  doc.rect(0,0,210,28,'F');
   doc.setTextColor(126,224,0);
-  doc.setFontSize(22);doc.setFont(undefined,'bold');
-  doc.text('SHREDLANE',14,14);
-  doc.setFontSize(9);doc.setTextColor(200,200,200);doc.setFont(undefined,'normal');
-  doc.text('TRACK. EXECUTE. TRANSFORM.',14,21);
-  doc.setFontSize(13);doc.setTextColor(255,255,255);
-  doc.text('PROGRESS REPORT CARD',196,14,{align:'right'});
-  doc.setFontSize(9);doc.setTextColor(180,180,180);
-  doc.text('Generated '+today(),196,21,{align:'right'});
+  doc.setFontSize(20);doc.setFont(undefined,'bold');
+  doc.text('SHREDLANE',14,13);
+  doc.setFontSize(8);doc.setTextColor(200,200,200);doc.setFont(undefined,'normal');
+  doc.text('TRACK. EXECUTE. TRANSFORM.',14,20);
+  doc.setFontSize(12);doc.setTextColor(255,255,255);
+  doc.text('PROGRESS REPORT CARD',196,13,{align:'right'});
+  doc.setFontSize(8);doc.setTextColor(180,180,180);
+  doc.text('Generated '+today(),196,20,{align:'right'});
 
   drawWatermark();
 
-  let y=40;
+  let y=34;
+  // Name + goal compact row
   doc.setTextColor(20,20,20);
-  doc.setFontSize(14);doc.setFont(undefined,'bold');
+  doc.setFontSize(12);doc.setFont(undefined,'bold');
   doc.text(u.name,14,y);
-  doc.setFont(undefined,'normal');doc.setFontSize(9);doc.setTextColor(100,100,100);
-  doc.text(u.email+'   ·   Goal: '+u.goal,14,y+6);
-  y+=18;
+  doc.setFont(undefined,'normal');doc.setFontSize(8);doc.setTextColor(100,100,100);
+  doc.text(u.email+'  ·  Goal: '+u.goal,14,y+5);
+  y+=12;
 
-  // ── Overall Traffic Light ──
+  // ── 1. OVERALL COMPOSITE SCORE (compact bar) ──
   const overall=overallScore();
   const tl=trafficLight(overall);
-  doc.setFillColor(240,240,240);
-  doc.roundedRect(14,y,182,18,3,3,'F');
-  drawDot(22,y+9,tl.rgb,4);
-  doc.setFontSize(11);doc.setFont(undefined,'bold');
-  doc.setTextColor(...tl.rgb);
-  doc.text('OVERALL: '+tl.label+(overall!=null?' ('+overall+'%)':''),30,y+10);
-  doc.setFont(undefined,'normal');doc.setFontSize(8);doc.setTextColor(120,120,120);
-  doc.text('Composite score across all 5 dimensions below',30,y+15);
-  y+=24;
+  doc.setFillColor(235,235,235);
+  doc.roundedRect(14,y,182,12,2,2,'F');
+  if(overall!=null){
+    doc.setFillColor(...tl.rgb);
+    doc.roundedRect(14,y,Math.max(4,182*overall/100),12,2,2,'F');
+  }
+  drawDot(22,y+6,tl.rgb,3);
+  doc.setFontSize(9);doc.setFont(undefined,'bold');doc.setTextColor(255,255,255);
+  doc.text('OVERALL: '+tl.label+(overall!=null?' — '+overall+'%':''),28,y+7.5);
+  doc.setFont(undefined,'normal');doc.setFontSize(7);
+  doc.text('Composite across all 5 dimensions',28,y+11.5);
+  y+=16;
 
-  // ── 5-Dimension Traffic Light Panel ──
+  // ── 2. BASELINE SUMMARY (compact single-row table) ──
+  const cols=[14,60,106,152];
+  const colW2=46;
+  // Header row
+  doc.setFillColor(14,14,14);
+  doc.rect(14,y,182,8,'F');
+  doc.setFontSize(7.5);doc.setFont(undefined,'bold');doc.setTextColor(160,160,160);
+  ['STARTING','CURRENT','TOTAL CHANGE','PROGRAMME'].forEach((h,i)=>doc.text(h,cols[i]+2,y+5.5));
+  y+=8;
+
+  // Data row — weight
+  doc.setFillColor(248,248,248);doc.rect(14,y,182,8,'F');
   doc.setFontSize(10);doc.setFont(undefined,'bold');doc.setTextColor(20,20,20);
-  doc.text('Performance Dashboard',14,y);y+=6;
+  doc.text(baseW?baseW+' kg':'—',cols[0]+2,y+6);
+  doc.text(last?last.weight+' kg':'—',cols[1]+2,y+6);
+  const wc=wLost,wac=waLost;
+  doc.setTextColor(wc==null?20:wc<=0?0:180, wc==null?20:wc<=0?140:40, 0);
+  doc.text(wc!=null?chgStr(wc,'kg'):'—',cols[2]+2,y+6);
+  doc.setTextColor(20,20,20);
+  doc.text(sorted.length+' check-ins',cols[3]+2,y+6);
+  y+=8;
+
+  // Data row — waist
+  doc.setFillColor(240,240,240);doc.rect(14,y,182,8,'F');
+  doc.setFontSize(10);doc.setFont(undefined,'bold');doc.setTextColor(20,20,20);
+  doc.text(baseWa?baseWa+' in':'—',cols[0]+2,y+6);
+  doc.text(last?last.waist+' in':'—',cols[1]+2,y+6);
+  doc.setTextColor(wac==null?20:wac<=0?0:180, wac==null?20:wac<=0?140:40, 0);
+  doc.text(wac!=null?chgStr(wac,'in'):'—',cols[2]+2,y+6);
+  doc.setTextColor(20,20,20);
+  doc.text('Streak: '+calcStreak(sorted)+' days',cols[3]+2,y+6);
+  y+=10;
+
+  // ── 3. PERFORMANCE DASHBOARD — stacked 100% horizontal bars ──
+  doc.setFontSize(9);doc.setFont(undefined,'bold');doc.setTextColor(20,20,20);
+  doc.text('Performance Dashboard',14,y);
+  doc.setFont(undefined,'normal');doc.setFontSize(7);doc.setTextColor(130,130,130);
+  doc.text('100% stacked — shows score achieved vs remaining gap to 100%',14,y+5);
+  y+=9;
 
   const dims=[
-    {label:'Body Composition',sub:'Weight & waist trend',score:scoreBodyComp()},
+    {label:'Body Composition',sub:'Weight & waist vs baseline',score:scoreBodyComp()},
     {label:'Adherence',sub:'Protein % + workout compliance',score:scoreAdherence()},
     {label:'Energy Proxy',sub:'Sleep hours average',score:scoreEnergy()},
-    {label:'Hunger / Cravings',sub:'Hunger score trend (lower = better)',score:scoreHunger()},
-    {label:'Activity',sub:'Steps ≥ 10,000/day compliance',score:scoreActivity()},
+    {label:'Hunger / Cravings',sub:'Hunger score (lower = better)',score:scoreHunger()},
+    {label:'Activity',sub:'Steps ≥ 10,000/day',score:scoreActivity()},
   ];
 
+  const barH=14, barGap=3, barX=70, barW=112;
   dims.forEach((d,i)=>{
     const tli=trafficLight(d.score);
-    const bx=14, bw=182, bh=13;
-    const by=y+i*15;
-    if(i%2===0){doc.setFillColor(252,252,252);}else{doc.setFillColor(246,246,246);}
-    doc.rect(bx,by,bw,bh,'F');
-    drawDot(bx+6,by+6.5,tli.rgb,3.5);
-    doc.setFontSize(9);doc.setFont(undefined,'bold');doc.setTextColor(20,20,20);
-    doc.text(d.label,bx+14,by+7);
-    doc.setFont(undefined,'normal');doc.setFontSize(8);doc.setTextColor(110,110,110);
-    doc.text(d.sub,bx+14,by+11.5);
-    // score badge
-    doc.setFillColor(...tli.rgb);
-    doc.roundedRect(bx+bw-26,by+2.5,24,8,2,2,'F');
-    doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont(undefined,'bold');
-    doc.text(d.score!=null?d.score+'%':'N/A',bx+bw-14,by+8,{align:'center'});
+    const by=y+i*(barH+barGap);
+    const sc=d.score??0;
+
+    // Label column
+    doc.setFontSize(8);doc.setFont(undefined,'bold');doc.setTextColor(20,20,20);
+    doc.text(d.label,14,by+6);
+    doc.setFont(undefined,'normal');doc.setFontSize(6.5);doc.setTextColor(130,130,130);
+    doc.text(d.sub,14,by+11);
+
+    // Traffic dot
+    drawDot(barX-5,by+7,tli.rgb,2.5);
+
+    // Background (gap = remaining %)
+    doc.setFillColor(230,230,230);
+    doc.roundedRect(barX,by,barW,barH,2,2,'F');
+
+    // Filled portion (score)
+    if(d.score!=null&&d.score>0){
+      const fillW=Math.max(4,barW*d.score/100);
+      // gradient effect: lighter shade for left, main colour for right
+      doc.setFillColor(...tli.rgb.map(v=>Math.min(255,v+60)));
+      doc.roundedRect(barX,by,fillW,barH,2,2,'F');
+      doc.setFillColor(...tli.rgb);
+      doc.roundedRect(barX+fillW*0.4,by,fillW*0.6,barH,0,0,'F');
+      // right cap fix
+      doc.roundedRect(barX+fillW-4,by,4,barH,2,2,'F');
+    }
+
+    // Score label inside bar
+    doc.setFontSize(8);doc.setFont(undefined,'bold');
+    doc.setTextColor(255,255,255);
+    if(d.score!=null){
+      const fillW=Math.max(4,barW*d.score/100);
+      if(fillW>18){
+        doc.text(d.score+'%',barX+fillW/2,by+9,{align:'center'});
+      }else{
+        doc.setTextColor(80,80,80);
+        doc.text(d.score+'%',barX+fillW+3,by+9);
+      }
+    } else {
+      doc.setTextColor(160,160,160);
+      doc.text('No data',barX+4,by+9);
+    }
+
+    // Gap label (remaining)
+    if(d.score!=null&&d.score<100){
+      const fillW=Math.max(4,barW*d.score/100);
+      const gapW=barW-fillW;
+      if(gapW>16){
+        doc.setTextColor(160,160,160);doc.setFontSize(7);doc.setFont(undefined,'normal');
+        doc.text((100-d.score)+'% gap',barX+fillW+gapW/2,by+9,{align:'center'});
+      }
+    }
     doc.setTextColor(20,20,20);
   });
-  y+=dims.length*15+8;
+  y+=dims.length*(barH+barGap)+8;
 
-  // ── Baseline Summary Box ──
-  doc.setFillColor(248,248,248);doc.setDrawColor(220,220,220);
-  doc.roundedRect(14,y,182,38,2,2,'FD');
-  const cols=[20,60,105,155];
-  doc.setFontSize(8);doc.setTextColor(120,120,120);
-  doc.text('STARTING',cols[0],y+8);doc.text('CURRENT',cols[1],y+8);doc.text('TOTAL CHANGE',cols[2],y+8);doc.text('PROGRAMME',cols[3],y+8);
-  doc.setFontSize(13);doc.setTextColor(20,20,20);doc.setFont(undefined,'bold');
-  doc.text(baseW?baseW+' kg':'—',cols[0],y+18);
-  doc.text(baseWa?baseWa+' in':'—',cols[0],y+26);
-  doc.text(last?last.weight+' kg':'—',cols[1],y+18);
-  doc.text(last?last.waist+' in':'—',cols[1],y+26);
-  const wc=wLost,wac=waLost;
-  doc.setTextColor(wc==null?20:wc<=0?0:180,wc==null?20:wc<=0?140:40,0);
-  doc.text(wc!=null?chgStr(wc,'kg'):'—',cols[2],y+18);
-  doc.setTextColor(wac==null?20:wac<=0?0:180,wac==null?20:wac<=0?140:40,0);
-  doc.text(wac!=null?chgStr(wac,'in'):'—',cols[2],y+26);
-  doc.setTextColor(20,20,20);
-  doc.text(sorted.length+' check-ins',cols[3],y+18);
-  doc.text('Streak: '+calcStreak(sorted)+' days',cols[3],y+26);
-  doc.setFont(undefined,'normal');doc.setFontSize(8);doc.setTextColor(120,120,120);
-  doc.text('wt · waist',cols[0],y+33);doc.text('wt · waist',cols[1],y+33);
-  doc.text('vs baseline',cols[2],y+33);doc.text('consistency',cols[3],y+33);
-  y+=46;
-
-  // ── Programme Averages ──
-  doc.setFontSize(10);doc.setTextColor(20,20,20);doc.setFont(undefined,'bold');
+  // ── 4. AVERAGES — compact 3-column grid ──
+  doc.setFontSize(9);doc.setFont(undefined,'bold');doc.setTextColor(20,20,20);
   doc.text('Programme Averages',14,y);y+=6;
   const avgItems=[
     {lbl:'Avg Weight',val:fmtAvg(overallAvgW)+' kg',score:scoreBodyComp()},
@@ -1777,17 +1833,17 @@ function exportMyPDF(){
   const acols=3,colW=60;
   avgItems.forEach((item,i)=>{
     const cx=14+(i%acols)*colW;
-    const cy=y+Math.floor(i/acols)*14;
+    const cy=y+Math.floor(i/acols)*12;
     const tli=trafficLight(item.score);
-    drawDot(cx,cy-2,tli.rgb,2);
-    doc.setFontSize(8);doc.setTextColor(120,120,120);doc.setFont(undefined,'normal');
-    doc.text(item.lbl,cx+5,cy);
-    doc.setFontSize(11);doc.setTextColor(20,20,20);doc.setFont(undefined,'bold');
-    doc.text(item.val,cx+5,cy+6);
+    drawDot(cx,cy-1,tli.rgb,1.8);
+    doc.setFontSize(7);doc.setTextColor(120,120,120);doc.setFont(undefined,'normal');
+    doc.text(item.lbl,cx+4,cy);
+    doc.setFontSize(10);doc.setTextColor(20,20,20);doc.setFont(undefined,'bold');
+    doc.text(item.val,cx+4,cy+6);
   });
-  y+=Math.ceil(avgItems.length/acols)*14+8;
+  y+=Math.ceil(avgItems.length/acols)*12+8;
 
-  // ── Metric Definitions ──
+  // ── 5. METRIC DEFINITIONS ──
   y=drawDefinitions(y);
 
   // ═══════════════════════════════════════
