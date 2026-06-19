@@ -719,6 +719,7 @@ const fdb = firebase.firestore();
 // returns this synced cache, so the rest of the app barely changes.
 let CACHE = {users:{}, checkins:{}};
 let fbReady = false;
+let checkinsReady = false;
 
 function gDB(){return CACHE}
 function today(){return new Date().toISOString().slice(0,10)}
@@ -762,6 +763,7 @@ fdb.collection('checkins').onSnapshot(snap=>{
     checkins[doc.id]=(data&&Array.isArray(data.entries))?data.entries:[];
   });
   CACHE.checkins=checkins;
+  checkinsReady=true;
   onDataUpdate();
 },err=>console.error(err));
 
@@ -885,7 +887,13 @@ function goTab(name,btn){
   if(name==='dashboard')renderDash();
   if(name==='history')renderHistory();
   if(name==='checkin')initCI();
-  if(name==='admin')renderAdmin();
+  if(name==='admin'){
+    renderAdmin();
+    // If checkins haven't loaded yet, retry once after 1.5s
+    if(!checkinsReady){
+      setTimeout(()=>{ if(document.getElementById('scr-admin').classList.contains('active')) renderAdmin(); }, 1500);
+    }
+  }
 }
 
 function viewMember(email){
@@ -1394,6 +1402,7 @@ function renderAdmin(){
   const members=Object.values(d.users).filter(u=>u.role!=='admin');
   // Guard: ensure all checkin values are arrays (manual DB edits can leave null/object)
   const allCI=Object.values(d.checkins).map(v=>Array.isArray(v)?v:[]).flat();
+  const ml=document.getElementById('membersList');
   const avgWt=allCI.filter(c=>c.weight).length?(allCI.reduce((s,c)=>s+(c.weight||0),0)/allCI.filter(c=>c.weight).length).toFixed(1):'—';
   document.getElementById('commGrid').innerHTML=`
     <div class="cm"><div class="cmv">${members.length}</div><div class="cml">Members</div></div>
@@ -1403,7 +1412,6 @@ function renderAdmin(){
     <div class="cm"><div class="cmv">${allCI.filter(c=>(c.steps||0)>=10000).length}</div><div class="cml">10K Days</div></div>
     <div class="cm"><div class="cmv">${avgWt}</div><div class="cml">Avg Wt kg</div></div>`;
 
-  const ml=document.getElementById('membersList');
   if(!members.length){ml.innerHTML='<div style="text-align:center;padding:24px;font-size:13px;color:var(--gry)">No members registered yet</div>';return;}
   ml.innerHTML=members.map((u,i)=>{
     const ci=Array.isArray(d.checkins[u.email])?d.checkins[u.email]:[];
