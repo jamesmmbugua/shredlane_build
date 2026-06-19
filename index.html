@@ -293,7 +293,7 @@ input[type=range]::-webkit-slider-thumb:active{transform:scale(1.2);}
 .comp-btn.sel-grn{border-color:#7EE000;background:var(--grn-dim);color:#7EE000}
 /* ── Workout Yes/No ── */
 .workout-row{display:flex;gap:10px;margin-top:8px}
-.wkt-btn{flex:1;padding:12px;border:1px solid var(--bdr2);border-radius:10px;background:var(--dark2);font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;cursor:pointer;text-align:center;transition:.15s;-webkit-tap-highlight-color:transparent;letter-spacing:.5px}
+.wkt-btn{flex:1;padding:12px;border:1px solid var(--bdr2);border-radius:10px;background:var(--dark2);font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;cursor:pointer;text-align:center;transition:.15s;-webkit-tap-highlight-color:transparent;letter-spacing:.5px;color:var(--wht)}
 .wkt-btn.sel-no{border-color:#EF4444;background:rgba(239,68,68,.15);color:#EF4444}
 .wkt-btn.sel-yes{border-color:#7EE000;background:var(--grn-dim);color:#7EE000}
 /* ── Sleep quality buttons ── */
@@ -756,7 +756,11 @@ fdb.collection('users').onSnapshot(snap=>{
 
 fdb.collection('checkins').onSnapshot(snap=>{
   const checkins={};
-  snap.forEach(doc=>checkins[doc.id]=doc.data().entries||[]);
+  snap.forEach(doc=>{
+    const data=doc.data();
+    // Guard: document may be deleted/empty after manual Firebase edits
+    checkins[doc.id]=(data&&Array.isArray(data.entries))?data.entries:[];
+  });
   CACHE.checkins=checkins;
   onDataUpdate();
 },err=>console.error(err));
@@ -903,7 +907,7 @@ function exitViewAs(){
 // CHECK-IN
 // ═══════════════════════════════════════
 let VIEWUSER=null; // coach "view as" target user object
-function myCI(){const u=VIEWUSER||CU;return u?(gDB().checkins[u.email]||[]):[]}
+function myCI(){const u=VIEWUSER||CU;if(!u)return[];const v=gDB().checkins[u.email];return Array.isArray(v)?v:[]}
 
 // ── DATE PICKER STATE ──
 let selectedDate = today(); // YYYY-MM-DD
@@ -1121,7 +1125,8 @@ async function saveCI(){
   const no=document.getElementById('ciNotes').value.trim();
   if(!wt||isNaN(wt)){toast('Please enter your weight','r');return;}
   if(!wa||isNaN(wa)){toast('Please enter your waist','r');return;}
-  const list=(gDB().checkins[CU.email]||[]).slice();
+  const raw=gDB().checkins[CU.email];
+  const list=(Array.isArray(raw)?raw:[]).slice();
   const t=selectedDate||today();
   const idx=list.findIndex(c=>c.date===t);
   const entry={date:t,weight:wt,waist:wa,steps:st,sleep:sl,hunger:hu,notes:no,protein:proteinPct,workout:workoutDone,sleepQual:sleepQual,water:waterCount};
@@ -1387,7 +1392,8 @@ function renderAdmin(){
   if(!CU||CU.role!=='admin')return;
   const d=gDB();
   const members=Object.values(d.users).filter(u=>u.role!=='admin');
-  const allCI=Object.values(d.checkins).flat();
+  // Guard: ensure all checkin values are arrays (manual DB edits can leave null/object)
+  const allCI=Object.values(d.checkins).map(v=>Array.isArray(v)?v:[]).flat();
   const avgWt=allCI.filter(c=>c.weight).length?(allCI.reduce((s,c)=>s+(c.weight||0),0)/allCI.filter(c=>c.weight).length).toFixed(1):'—';
   document.getElementById('commGrid').innerHTML=`
     <div class="cm"><div class="cmv">${members.length}</div><div class="cml">Members</div></div>
@@ -1400,7 +1406,7 @@ function renderAdmin(){
   const ml=document.getElementById('membersList');
   if(!members.length){ml.innerHTML='<div style="text-align:center;padding:24px;font-size:13px;color:var(--gry)">No members registered yet</div>';return;}
   ml.innerHTML=members.map((u,i)=>{
-    const ci=d.checkins[u.email]||[];
+    const ci=Array.isArray(d.checkins[u.email])?d.checkins[u.email]:[];
     const streak=calcStreak(ci);
     const last=ci[ci.length-1];
     const col=COLORS[i%COLORS.length];
@@ -1498,7 +1504,7 @@ function exportAllCSV(){
   const members=Object.values(d.users).filter(u=>u.role!=='admin');
   const sqL=['Poor','Fair','Good','Great'];
   members.forEach(u=>{
-    const ci=d.checkins[u.email]||[];
+    const ci=Array.isArray(d.checkins[u.email])?d.checkins[u.email]:[];
     if(!ci.length){
       rows.push([u.name,u.email,u.goal,u.status,u.joined,'','','','','','','','','','','']);
     }else{
@@ -1515,7 +1521,7 @@ function exportAllCSV(){
 function exportMyCSV(){
   if(!CU)return;
   const u=VIEWUSER||CU;
-  const ci=[...(gDB().checkins[u.email]||[])].sort((a,b)=>a.date.localeCompare(b.date));
+  const ci=[...(Array.isArray(gDB().checkins[u.email])?gDB().checkins[u.email]:[])].sort((a,b)=>a.date.localeCompare(b.date));
   const rows=[['Date','Weight (kg)','Waist (in)','Steps','Sleep (hrs)','Sleep Quality','Hunger (1-10)','Water (glasses)','Protein %','Workout','Notes']];
   const sqL=['Poor','Fair','Good','Great'];
   ci.forEach(c=>rows.push([c.date,c.weight??'',c.waist??'',c.steps??'',c.sleep??'',c.sleepQual!=null?sqL[c.sleepQual]:'',c.hunger??'',c.water??'',c.protein!=null?c.protein+'%':'',c.workout===true?'Yes':c.workout===false?'No':'',c.notes||'']));
@@ -1527,7 +1533,7 @@ function exportMyCSV(){
 function exportMyPDF(){
   if(!CU)return;
   const u=VIEWUSER||CU;
-  const ci=[...(gDB().checkins[u.email]||[])].sort((a,b)=>a.date.localeCompare(b.date));
+  const ci=[...(Array.isArray(gDB().checkins[u.email])?gDB().checkins[u.email]:[])].sort((a,b)=>a.date.localeCompare(b.date));
   const { jsPDF } = window.jspdf;
   const doc=new jsPDF();
 
@@ -1843,9 +1849,6 @@ function exportMyPDF(){
   });
   y+=Math.ceil(avgItems.length/acols)*12+8;
 
-  // ── 5. METRIC DEFINITIONS ──
-  y=drawDefinitions(y);
-
   // ═══════════════════════════════════════
   // PAGE 2+: WEEKLY BREAKDOWN
   // ═══════════════════════════════════════
@@ -1986,6 +1989,10 @@ function exportMyPDF(){
     doc.setTextColor(20,20,20);
     y+=5.5;
   });
+
+  // ── LAST PAGE: METRIC DEFINITIONS ──
+  doc.addPage();drawWatermark();
+  drawDefinitions(20);
 
   // Footer on all pages
   const pageCount=doc.getNumberOfPages();
